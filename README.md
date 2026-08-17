@@ -1,40 +1,64 @@
-# Context.dev for LangChain
+# langchain-context
 
-Use Context.dev's live web search, scraping, crawling, structured extraction,
-document parsing, brand intelligence, monitors, screenshots, and asynchronous
-batches as native LangChain tools.
+[![CI](https://github.com/context-dot-dev/langchain-context/actions/workflows/test.yml/badge.svg)](https://github.com/context-dot-dev/langchain-context/actions/workflows/test.yml)
+[![Python](https://img.shields.io/badge/python-3.10--3.14-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 
-## Installation
+This package contains the LangChain integration for [Context.dev](https://www.context.dev),
+an API for turning the live web into reliable data for AI applications. It gives agents
+native tools for web search, scraping, crawling, structured extraction, document parsing,
+brand intelligence, website monitoring, screenshots, and asynchronous batch jobs.
+
+## Quick install
 
 ```bash
 pip install -U langchain-context
 ```
 
-Set a Context.dev API key:
+Get an API key from [context.dev](https://www.context.dev) and set it as the
+`CONTEXT_API_KEY` environment variable, or pass `api_key=...` to any tool or toolkit.
 
 ```bash
 export CONTEXT_API_KEY="your-api-key"
 ```
 
-## Quick start
+## Tools
 
-Choose individual tools when you know exactly what an agent needs:
+Each Context.dev capability is available as a LangChain `BaseTool`:
 
 ```python
 from langchain_context import ContextScrape, ContextSearch
 
-tools = [ContextSearch(), ContextScrape()]
-
-results = tools[0].invoke(
+search = ContextSearch()
+results = search.invoke(
     {
         "query": "latest official Stripe product announcements",
         "includeDomains": ["stripe.com"],
         "numResults": 10,
     }
 )
+
+scrape = ContextScrape()
+page = scrape.invoke({"url": "https://stripe.com/newsroom"})
 ```
 
-Or load the combined toolkit:
+The most common tools have short aliases:
+
+| Tool | Purpose |
+| --- | --- |
+| `ContextSearch` | Search the live web |
+| `ContextScrape` | Scrape one URL as clean Markdown |
+| `ContextCrawl` | Crawl linked pages from a website |
+| `ContextSitemap` | Discover or search a site's URLs |
+| `ContextExtract` | Extract structured data using a JSON schema |
+| `ContextParse` | Parse PDFs and other documents into Markdown |
+
+Dedicated classes are also available for HTML, images, screenshots, style guides,
+fonts, company classifications, brand profiles, monitors, and batch jobs.
+
+## Toolkit
+
+Give an agent the complete safe-by-default Context.dev toolkit:
 
 ```python
 from langchain_context import ContextToolkit
@@ -42,21 +66,7 @@ from langchain_context import ContextToolkit
 tools = ContextToolkit().get_tools()
 ```
 
-The combined toolkit includes all public Context.dev capability groups. By
-default, it omits monitor and batch mutations and removes browser actions from
-the page-scraping tools. Enable those capabilities only for agents that should
-be allowed to change Context.dev or third-party state:
-
-```python
-tools = ContextToolkit(
-    include_write_tools=True,
-    allow_browser_actions=True,
-).get_tools()
-```
-
-## Focused toolkits
-
-Use smaller toolkits to reduce tool-selection noise:
+Or keep the tool list focused:
 
 ```python
 from langchain_context import (
@@ -68,43 +78,27 @@ from langchain_context import (
 
 web_tools = ContextWebToolkit().get_tools()
 brand_tools = ContextBrandToolkit().get_tools()
-monitor_read_tools = ContextMonitorToolkit().get_tools()
-batch_read_tools = ContextBatchToolkit().get_tools()
-
-monitor_tools = ContextMonitorToolkit(include_write_tools=True).get_tools()
-batch_tools = ContextBatchToolkit(include_write_tools=True).get_tools()
+monitor_tools = ContextMonitorToolkit().get_tools()
+batch_tools = ContextBatchToolkit().get_tools()
 ```
 
-The toolkits accept `api_key`, `api_base`, and `timeout`. `api_key` defaults to
-`CONTEXT_API_KEY`; `api_base` defaults to `https://api.context.dev/v1` and can
-also be set with `CONTEXT_API_BASE`.
+Write operations and browser actions are opt-in. Enable them only for agents that
+should be allowed to create or modify Context.dev resources or interact with forms
+on third-party websites:
 
-## Core tools
+```python
+tools = ContextToolkit(
+    include_write_tools=True,
+    allow_browser_actions=True,
+).get_tools()
+```
 
-The most common tools have concise aliases:
+All toolkits accept `api_key`, `api_base`, and `timeout`. `api_base` defaults to
+`https://api.context.dev/v1` and can also be set with `CONTEXT_API_BASE`.
 
-| Alias | Tool | Purpose |
-| --- | --- | --- |
-| `ContextSearch` | `ContextWebSearch` | Search the live web |
-| `ContextScrape` | `ContextWebScrapeMarkdown` | Read one URL as Markdown |
-| `ContextCrawl` | `ContextWebCrawl` | Crawl several linked pages |
-| `ContextSitemap` | `ContextWebScrapeSitemap` | Discover or search site URLs |
-| `ContextExtract` | `ContextWebExtract` | Extract structured JSON |
-| `ContextParse` | `ContextParseDocument` | Parse files to Markdown |
+## Parse documents
 
-Every public endpoint is also available as a dedicated tool class, including
-HTML and image scraping, screenshots, style guides, fonts, NAICS and SIC
-classification, monitor lifecycle and change history, and batch lifecycle and
-results.
-
-The package covers all 33 API-backed tools in the current public Context.dev
-MCP catalog. The MCP-only `get-brand` visual card is host UI rather than an API
-operation; `ContextBrandRetrieve` exposes the same underlying brand data as
-structured output for LangChain applications.
-
-## Parse a document
-
-`ContextParse` accepts base64-encoded file bytes so it remains compatible with
+`ContextParse` accepts base64-encoded bytes so files remain compatible with
 LangChain's JSON tool-call interface:
 
 ```python
@@ -122,31 +116,27 @@ result = ContextParse().invoke(
 )
 ```
 
-## Async use
+## Async
 
-All tools support LangChain's asynchronous interface:
+Every tool supports LangChain's asynchronous interface:
 
 ```python
 from langchain_context import ContextSearch
 
-result = await ContextSearch().ainvoke({"query": "Context.dev documentation"})
+result = await ContextSearch().ainvoke(
+    {"query": "latest Context.dev product announcements"}
+)
 ```
 
-## Tool selection and safety
+## Coverage
 
-- Prefer `ContextSearch` when the source URL is unknown.
-- Prefer `ContextScrape` for one known page and `ContextCrawl` for a small site section.
-- Prefer `ContextSitemap` when an agent needs URL discovery without page content.
-- Prefer `ContextExtract` when the output must conform to a JSON schema.
-- Prefer batches for large asynchronous jobs.
-- Keep `include_write_tools=False` unless an agent should create, update, run,
-  cancel, or delete resources.
-- Keep `allow_browser_actions=False` unless an agent should interact with
-  third-party pages. Browser actions can submit forms or otherwise change
-  external state.
+The package exposes all 33 API-backed tools in Context.dev's public MCP catalog.
+The MCP-only `get-brand` visual card is host UI; `ContextBrandRetrieve` returns the
+same underlying brand data as structured output for LangChain applications.
 
-## Links
+## Documentation
 
+- [LangChain integration source](https://github.com/context-dot-dev/langchain-context)
 - [Context.dev documentation](https://docs.context.dev)
-- [API reference](https://docs.context.dev/api-reference)
-- [Context.dev](https://www.context.dev)
+- [Context.dev API reference](https://docs.context.dev/api-reference)
+- [Context.dev homepage](https://www.context.dev)
